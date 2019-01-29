@@ -10,10 +10,6 @@ from selenium.webdriver.common.action_chains import ActionChains
 
 wd = get_driver()
 
-email='3168095199@qq.com'
-password = 'shelock007'
-
-
 loginUrl = 'https://www.linkedin.com'
 
 def login(email, password):
