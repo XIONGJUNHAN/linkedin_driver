@@ -1,51 +1,92 @@
 __site_url__ = 'https://www.linkedin.com'
+
+import sys
 import re
 import time
 import bs4
+import time
+import urllib
 
+from metadrive import utils
 from metadrive._selenium import get_driver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.wait import WebDriverWait
 
-
-def login(email, password):# {{{}}}
-    wd.get(__site_url__)
-    email_input = wd.find_element_by_class_name('login-email')
-    password_input = wd.find_element_by_class_name('login-password')
-    email_input.send_keys(email)
-    password_input.send_keys(password)
-    password_input.send_keys(Keys.ENTER)
-    # cookies = wd.get_cookies()
+def login(username=None, password=None, profile=None, recreate_profile=False):
+    '''
+    Accepts: username/password.
+    Returns: driver with logged-in state.
+    '''
+    # TODO:
+    # Handle this in the future:
     #
-    # for cookie in cookies:
-    #     wd.add_cookie(cookie)
-    any_window = wd.find('button', {'class': 'takeover-welcome-mat__dismiss-button button-tertiary-medium-muted'})
+    # 1. LinkedIn asks to verify e-mail address if it sees too often log-ins.
+    # 2. LinkedIn asks to enter phone number
+    driver = get_driver(recreate_profile=recreate_profile)
+    driver.get(__site_url__)
+    soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
 
-    if any_window:
-        wd.find_element_by_class_name('takeover-welcome-mat__dismiss-button button-tertiary-medium-muted').click()
+    if soup.find('div', {'class': 'core-rail'}):
+        driver.metaname = utils.get_metaname('linkedin')
+        return driver
 
-    wd.get('https://www.linkedin.com/in/austinoboyle/')
+    if not (username and password):
+        credential = utils.get_or_ask_credentials(
+            namespace='linkedin',
+            variables=['username', 'password'], ask_refresh=True)
 
-def open_contact():
+        username = credential['username']
+        password = credential['password']
+
+    user_field = soup.find('input', {'class': 'login-email'})
+    pass_field = soup.find('input', {'class': 'login-password'})
+
+    if user_field and pass_field:
+
+        driver.find_element_by_class_name('login-email').send_keys(username)
+        driver.find_element_by_class_name('login-password').send_keys(password)
+        driver.find_element_by_id('login-submit').click()
+        soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+
+        if soup.find('div', {'id': 'error-for-password'}):
+            raise Exception("Incorrect password. Try to relogin.")
+
+        if soup.find('button', {'class': 'artdeco-dismiss'}):
+            'Removing the notification about cookies.'
+            driver.find_element_by_class_name('artdeco-dismiss').click()
+
+    soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+
+    if soup.find('li', {'id': 'profile-nav-item'}):
+        return driver
+    else:
+        raise Exception("Something wrong, the site does not have profile (user-dropdown).")
+
+
+def open_contact(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     '''needs to be called twice'''
-    #must run the function in turns
-    contact = wd.find_element_by_class_name('pv-top-card-v2-section__contact-info')
-    wd.execute_script('arguments[0].disabled = true;',contact)
-    wd.execute_script('arguments[0].click();',contact)
 
-    contact_soup = bs4.BeautifulSoup(wd.page_source,'html.parser')
-    career_card = contact_soup.find(class_ = 'ci-vanity-url')
+    driver.get(urllib.parse.urljoin(contact_url, 'detail/contact-info/'))
+    contact_soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+
+    career_card = contact_soup.find('section', {'class': 'pv-contact-info__contact-type ci-vanity-url'})
     profile_url = [search['href'] for search in career_card.find_all('a')]
-    website = contact_soup.find(class_ = 'ci-websites')
+
+    website = contact_soup.find('section', {'class': 'pv-contact-info__contact-type ci-websites'})
     web_url = [search['href'] for search in website.find_all('a')]
+
     web_type = [search.text.strip() for search in website.find_all('span')]
     websites = []
     for i in range(len(web_url)):
         websites.append({'type':web_type[i],'url':web_url[i]})
-    contact = {"profile_url":profile_url,"websites":websites}
-    print(contact)
-    close = wd.find_element_by_class_name('artdeco-dismiss')
-    ActionChains(wd).move_to_element(close).click().perform()
+
+    contact = {"profile_url": profile_url, "websites": websites}
+
+    close = driver.find_element_by_class_name('artdeco-dismiss')
+    ActionChains(driver).move_to_element(close).click().perform()
+
+    return contact
 
 
 def scroll_to_bottom():
@@ -59,15 +100,15 @@ def scroll_to_bottom():
     while True:
         for name in expandable_button_selectors:
             try:
-                wd.find_element_by_css_selector(name).click()
+                driver.find_element_by_css_selector(name).click()
             except:
                 pass
         # Scroll down to bottom
-        new_height = wd.execute_script(
+        new_height = driver.execute_script(
             "return Math.min({}, document.body.scrollHeight)".format(current_height + 280))
         if (new_height == current_height):
             break
-        wd.execute_script(
+        driver.execute_script(
             "window.scrollTo(0, Math.min({}, document.body.scrollHeight));".format(new_height))
         current_height = new_height
         # Wait to load page
@@ -87,8 +128,8 @@ def extract_interest(sou):
 
 def open_interest():
     '''if it crashes, try it several times'''
-    see_interest = wd.find_element_by_css_selector('a[data-control-name="view_interest_details"]')
-    ActionChains(wd).move_to_element(see_interest).click().perform()
+    see_interest = driver.find_element_by_css_selector('a[data-control-name="view_interest_details"]')
+    ActionChains(driver).move_to_element(see_interest).click().perform()
 
     interest_selector = ['a[data-control-name="following_companies"]','a[data-control-name="following_groups"]','a[data-control-name="following_schools"]']
 
@@ -96,14 +137,14 @@ def open_interest():
 
     for name in interest_selector:
         try:
-            wd.find_element_by_css_selector(name).click()
-            soup = bs4.BeautifulSoup(wd.page_source,'html.parser')
+            driver.find_element_by_css_selector(name).click()
+            soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
             interests.append(extract_interest(soup))
         except:
             pass
     print(interests)
-    close = wd.find_element_by_class_name('artdeco-dismiss')
-    ActionChains(wd).move_to_element(close).click().perform()
+    close = driver.find_element_by_class_name('artdeco-dismiss')
+    ActionChains(driver).move_to_element(close).click().perform()
 
 
 
@@ -120,14 +161,14 @@ def text_or_default_accomp(element, selector, default=None):
 
 def open_accompliments():
 
-    soup0 = bs4.BeautifulSoup(wd.page_source,'html.parser')
+    soup0 = bs4.BeautifulSoup(driver.page_source,'html.parser')
 
     classification = []
 
     for cla in soup0.find_all('h3',{'class':'pv-accomplishments-block__title'}):
         classification.append(cla.text)
 
-    accomp_expand = wd.find_elements_by_class_name('pv-accomplishments-block__expand')
+    accomp_expand = driver.find_elements_by_class_name('pv-accomplishments-block__expand')
 
     expand_box = soup0.find_all(class_ = 'pv-profile-section__see-more-inline')
 
@@ -140,15 +181,15 @@ def open_accompliments():
 
     content = []
     for accomp in accomp_expand:
-            ActionChains(wd).move_to_element(accomp).click().perform()
-            expand_btn = wd.find_elements_by_class_name('pv-profile-section__see-more-inline')[count:]
+            ActionChains(driver).move_to_element(accomp).click().perform()
+            expand_btn = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')[count:]
             for btn in expand_btn:
                 try:
-                    ActionChains(wd).move_to_element(btn).click().perform()
+                    ActionChains(driver).move_to_element(btn).click().perform()
                 except:
                     pass
 
-            soup = bs4.BeautifulSoup(wd.page_source,'html.parser')
+            soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
 
             class_block = soup.find_all('li',{'class':'pv-accomplishment-entity--expanded'})
 
@@ -172,11 +213,11 @@ def open_accompliments():
     print(list(result))
 
 def open_more():
-    eles= wd.find_elements_by_css_selector('.lt-line-clamp__more')
+    eles= driver.find_elements_by_css_selector('.lt-line-clamp__more')
     for ele in eles:
         try:
-            wd.execute_script('arguments[0].disabled = true;',ele)
-            wd.execute_script('arguments[0].click();',ele)
+            driver.execute_script('arguments[0].disabled = true;',ele)
+            driver.execute_script('arguments[0].click();',ele)
         except:
             pass
 
@@ -409,34 +450,52 @@ def skills(soup):
 
 
 if __name__ == '__main__':
-    import sys
     self = sys.modules[__name__]
 
-    wd = self.get_driver()
-    self.login('<email>', '<password>')
+    driver = login('numerai@mindey.com', 'meOH6pp5uaW0')
+    data = open_contact('https://www.linkedin.com/in/austinoboyle/')
+    print(data)
 
-    # open_contact() # needs to be called twice, #must run the function in turns
     # scroll_to_bottom()
-    # extract_interest(sou)
-    # open_interest() # if it crashes, try it several times
-    # text_or_default_accomp(element, selector, default=None)
-    # open_accompliments()
+    # open_interest() # close
+    # open_interest()
+    #
+    # open_accomplishments()
     # open_more()
-
-    soup = bs4.BeautifulSoup(wd.page_source,'html.parser')
-    # flatten_list
-
-    # flatten_list(l)
-    # one_or_default(element, selector, default=None)
-    # text_or_default(element, selector, default=None)
-    # all_or_default(element, selector, default=[])
-    # get_info(element, mapping, default=None)
-    # get_job_info(job)
-    # get_school_info(school)
-    # get_volunteer_info(exp)
-    # get_skill_info(skill)
+    #
+    # 开一个
+    # soup
+    #
     # personal_info(soup)
     # experiences(soup)
     # skills(soup)
+    #
 
-    print('We Execute')
+
+
+
+    # self.open_contact() # needs to be called twice, #must run the function in turns
+    # self.scroll_to_bottom()
+    # self.extract_interest(sou)
+    # self.open_interest() # if it crashes, try it several times
+    # self.text_or_default_accomp(element, selector, default=None)
+    # self.open_accompliments()
+    # self.open_more()
+
+    # soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
+    # self.flatten_list(l)
+    # self.one_or_default(element, selector, default=None)
+    # self.text_or_default(element, selector, default=None)
+    # self.all_or_default(element, selector, default=[])
+    # self.get_info(element, mapping, default=None)
+    # self.get_job_info(job)
+    # self.get_school_info(school)
+    # self.get_volunteer_info(exp)
+    # self.get_skill_info(skill)
+
+    # ---
+    # self.personal_info(soup)
+    # self.experiences(soup)
+    # self.skills(soup)
+
+    #killsrint('We Execute')
