@@ -1,40 +1,39 @@
+__site_url__ = 'https://www.linkedin.com'
 import re
 import time
+import bs4
 
 from metadrive._selenium import get_driver
-
 from selenium.webdriver.common.keys import Keys
-from bs4 import BeautifulSoup
-
 from selenium.webdriver.common.action_chains import ActionChains
 
-wd = get_driver()
 
-loginUrl = 'https://www.linkedin.com'
-
-def login(email, password):
-    wd.get(loginUrl)
+def login(email, password):# {{{}}}
+    wd.get(__site_url__)
     email_input = wd.find_element_by_class_name('login-email')
     password_input = wd.find_element_by_class_name('login-password')
     email_input.send_keys(email)
     password_input.send_keys(password)
     password_input.send_keys(Keys.ENTER)
-
     # cookies = wd.get_cookies()
     #
     # for cookie in cookies:
     #     wd.add_cookie(cookie)
+    any_window = wd.find('button', {'class': 'takeover-welcome-mat__dismiss-button button-tertiary-medium-muted'})
+
+    if any_window:
+        wd.find_element_by_class_name('takeover-welcome-mat__dismiss-button button-tertiary-medium-muted').click()
 
     wd.get('https://www.linkedin.com/in/austinoboyle/')
 
-#must run the function in turns
 def open_contact():
     '''needs to be called twice'''
+    #must run the function in turns
     contact = wd.find_element_by_class_name('pv-top-card-v2-section__contact-info')
     wd.execute_script('arguments[0].disabled = true;',contact)
     wd.execute_script('arguments[0].click();',contact)
 
-    contact_soup = BeautifulSoup(wd.page_source,'html.parser')
+    contact_soup = bs4.BeautifulSoup(wd.page_source,'html.parser')
     career_card = contact_soup.find(class_ = 'ci-vanity-url')
     profile_url = [search['href'] for search in career_card.find_all('a')]
     website = contact_soup.find(class_ = 'ci-websites')
@@ -47,7 +46,7 @@ def open_contact():
     print(contact)
     close = wd.find_element_by_class_name('artdeco-dismiss')
     ActionChains(wd).move_to_element(close).click().perform()
-    
+
 
 def scroll_to_bottom():
     #Scroll to the bottom of the page
@@ -73,7 +72,7 @@ def scroll_to_bottom():
         current_height = new_height
         # Wait to load page
         time.sleep(0.4)
-        
+
 
 def extract_interest(sou):
     box = []
@@ -90,23 +89,23 @@ def open_interest():
     '''if it crashes, try it several times'''
     see_interest = wd.find_element_by_css_selector('a[data-control-name="view_interest_details"]')
     ActionChains(wd).move_to_element(see_interest).click().perform()
-    
-    interest_selector = ['a[data-control-name="following_companies"]','a[data-control-name="following_groups"]','a[data-control-name="following_schools"]'] 
-    
+
+    interest_selector = ['a[data-control-name="following_companies"]','a[data-control-name="following_groups"]','a[data-control-name="following_schools"]']
+
     interests = []
-    
+
     for name in interest_selector:
         try:
-            wd.find_element_by_css_selector(name).click() 
-            soup = BeautifulSoup(wd.page_source,'html.parser')
+            wd.find_element_by_css_selector(name).click()
+            soup = bs4.BeautifulSoup(wd.page_source,'html.parser')
             interests.append(extract_interest(soup))
         except:
             pass
     print(interests)
     close = wd.find_element_by_class_name('artdeco-dismiss')
     ActionChains(wd).move_to_element(close).click().perform()
-    
-        
+
+
 
 def text_or_default_accomp(element, selector, default=None):
     try:
@@ -117,30 +116,30 @@ def text_or_default_accomp(element, selector, default=None):
             return s[0].strip()
     except Exception as e:
         return default
-    
-    
+
+
 def open_accompliments():
-    
-    soup0 = BeautifulSoup(wd.page_source,'html.parser')
-    
+
+    soup0 = bs4.BeautifulSoup(wd.page_source,'html.parser')
+
     classification = []
-        
+
     for cla in soup0.find_all('h3',{'class':'pv-accomplishments-block__title'}):
         classification.append(cla.text)
-    
+
     accomp_expand = wd.find_elements_by_class_name('pv-accomplishments-block__expand')
-    
+
     expand_box = soup0.find_all(class_ = 'pv-profile-section__see-more-inline')
-    
+
     count = 0
     for btn in expand_box:
         if 'aria-controls' in btn.attrs:
             break
         count+=1
 
-    
+
     content = []
-    for accomp in accomp_expand:    
+    for accomp in accomp_expand:
             ActionChains(wd).move_to_element(accomp).click().perform()
             expand_btn = wd.find_elements_by_class_name('pv-profile-section__see-more-inline')[count:]
             for btn in expand_btn:
@@ -148,27 +147,27 @@ def open_accompliments():
                     ActionChains(wd).move_to_element(btn).click().perform()
                 except:
                     pass
-                
-            soup = BeautifulSoup(wd.page_source,'html.parser') 
+
+            soup = bs4.BeautifulSoup(wd.page_source,'html.parser')
 
             class_block = soup.find_all('li',{'class':'pv-accomplishment-entity--expanded'})
-            
+
             title = '.pv-accomplishment-entity__title'
             date = '.pv-accomplishment-entity__date'
             issuer = '.pv-accomplishment-entity__issuer'
             description = '.pv-accomplishment-entity__description'
-            
+
             cont = []
             for item in class_block:
                 cont.append({
                     'title':text_or_default_accomp(item,title),
                     'subtitle':{'date':text_or_default_accomp(item,date),'issuer':text_or_default_accomp(item,issuer)},
-                   'description':text_or_default_accomp(item,description)  
+                   'description':text_or_default_accomp(item,description)
                 })
-            
+
             content.append(cont)
-            
-            
+
+
     result = zip(classification,content)
     print(list(result))
 
@@ -180,10 +179,8 @@ def open_more():
             wd.execute_script('arguments[0].click();',ele)
         except:
             pass
-        
 
-        
-soup = BeautifulSoup(wd.page_source,'html.parser') 
+
 
 def flatten_list(l):
     return [item for sublist in l for item in sublist]
@@ -196,6 +193,7 @@ def one_or_default(element, selector, default=None):
         - default {any}: default return value
     Returns:
         beautifulsoup element if match is found, otherwise return the default
+        ne_or_default(element, selector, default=None)
     """
     try:
         el = element.select_one(selector)
@@ -212,7 +210,7 @@ def text_or_default(element, selector, default=None):
         return element.select_one(selector).get_text().strip()
     except Exception as e:
         return default
-    
+
 def all_or_default(element, selector, default=[]):
     """Get all matching elements for a css selector within an element
     Params:
@@ -230,7 +228,7 @@ def all_or_default(element, selector, default=[]):
         return element.select(selector)
     except Exception as e:
         return default
-    
+
 def get_info(element, mapping, default=None):
     """Turn beautifulsoup element and key->selector dict into a key->value dict
     Args:
@@ -294,7 +292,7 @@ def get_job_info(job):
             job_info['li_company_url'] = ''
 
         return [job_info]
-    
+
 def get_school_info(school):
     """
     Returns:
@@ -394,7 +392,7 @@ def experiences(soup):
         experiences['volunteering'] = volunteering
 
         return experiences
-    
+
 def skills(soup):
         """
         Returns:
@@ -410,3 +408,35 @@ def skills(soup):
         return sorted(skills, key=sort_skills, reverse=True)
 
 
+if __name__ == '__main__':
+    import sys
+    self = sys.modules[__name__]
+
+    wd = self.get_driver()
+    self.login('<email>', '<password>')
+
+    # open_contact() # needs to be called twice, #must run the function in turns
+    # scroll_to_bottom()
+    # extract_interest(sou)
+    # open_interest() # if it crashes, try it several times
+    # text_or_default_accomp(element, selector, default=None)
+    # open_accompliments()
+    # open_more()
+
+    soup = bs4.BeautifulSoup(wd.page_source,'html.parser')
+    # flatten_list
+
+    # flatten_list(l)
+    # one_or_default(element, selector, default=None)
+    # text_or_default(element, selector, default=None)
+    # all_or_default(element, selector, default=[])
+    # get_info(element, mapping, default=None)
+    # get_job_info(job)
+    # get_school_info(school)
+    # get_volunteer_info(exp)
+    # get_skill_info(skill)
+    # personal_info(soup)
+    # experiences(soup)
+    # skills(soup)
+
+    print('We Execute')
