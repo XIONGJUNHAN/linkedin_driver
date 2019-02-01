@@ -6,6 +6,10 @@ from metadrive._selenium import get_driver
 from selenium.webdriver.common.keys import Keys
 from bs4 import BeautifulSoup
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+
 from selenium.webdriver.common.action_chains import ActionChains
 
 wd = get_driver()
@@ -29,7 +33,8 @@ def login(email, password):
     # for cookie in cookies:
     #     wd.add_cookie(cookie)
 
-    wd.get('https://www.linkedin.com/in/austinoboyle/')
+    #wd.get('https://www.linkedin.com/in/austinoboyle/')
+    wd.get('https://www.linkedin.com/in/skhalifa/')
 
 #must run the function in turns
 def open_contact():
@@ -56,9 +61,9 @@ def open_contact():
 def scroll_to_bottom():
     #Scroll to the bottom of the page
     expandable_button_selectors = [
-        'button[aria-expanded="false"].pv-skills-section__additional-skills',
+        'button[aria-expanded="false"].pv-top-card-section__summary-toggle-button',
         'button[aria-expanded="false"].pv-profile-section__see-more-inline',
-        'button[aria-expanded="false"].pv-top-card-section__summary-toggle-button'
+        'button[aria-expanded="false"].pv-skills-section__additional-skills'
     ]
     current_height = 0
     while True:
@@ -69,7 +74,7 @@ def scroll_to_bottom():
                 pass
         # Scroll down to bottom
         new_height = wd.execute_script(
-            "return Math.min({}, document.body.scrollHeight)".format(current_height + 280))
+            "return Math.min({}, document.body.scrollHeight)".format(current_height + 300))
         if (new_height == current_height):
             break
         wd.execute_script(
@@ -91,7 +96,7 @@ def extract_interest(sou):
 
 
 def open_interest():
-    '''if it crashes, try it several times'''
+    '''try it twice'''
     see_interest = wd.find_element_by_css_selector('a[data-control-name="view_interest_details"]')
     ActionChains(wd).move_to_element(see_interest).click().perform()
     
@@ -108,6 +113,8 @@ def open_interest():
             pass
     print(interests)
     close = wd.find_element_by_class_name('artdeco-dismiss')
+    '''WebDriverWait(wd,45).until(
+        lambda x: x.find_element_by_class_name('artdeco-dismiss'))'''
     ActionChains(wd).move_to_element(close).click().perform()
     
         
@@ -413,4 +420,58 @@ def skills(soup):
             x['endorsements'].replace('+', '')) if x['endorsements'] else 0
         return sorted(skills, key=sort_skills, reverse=True)
 
+
+
+def get_recommendations():
+    
+    tab = wd.find_elements_by_tag_name('artdeco-tab')
+    expand = wd.find_elements_by_class_name('pv-profile-section__see-more-inline')
+    
+    #'show more' btn in the first tab item was clicked in scroll_to_bottom, we only need to click the 'show more' in the other items
+    for item in tab[1:]:
+        ActionChains(wd).move_to_element(item).click().perform()
+        for btn in expand:
+            try:
+                ActionChains(wd).move_to_element(btn).click().perform()
+            except:
+                pass
+            
+    more = wd.find_elements_by_class_name('lt-line-clamp__more')
+            
+    for item in tab:
+        ActionChains(wd).move_to_element(item).click().perform()
+        for btn in more:
+            try:
+                wd.execute_script('arguments[0].disabled = true;',btn)
+                wd.execute_script('arguments[0].click();',btn)
+            except:
+                pass
+                
+    
+    soup = BeautifulSoup(wd.page_source,'html.parser') 
+    recom = soup.find_all('artdeco-tabpanel') 
+    
+    recommend = []
+    for panel in recom:
+        recom_list = panel.find('ul',{'class':'section-info'}).find_all('li',{'class':'pv-recommendation-entity'})
+        for item in recom_list:
+            giver_intro = item.find('div',{'class':'pv-recommendation-entity__detail'}).get_text().strip().split('\n')
+            giver_name = giver_intro[0].strip()
+            giver_job = giver_intro[1].strip()
+            companian_time = giver_intro[3].strip()
+            giver_img = item.find('a',{'data-control-name':'recommendation_details_profile'})
+            
+            giver_recom = item.find('blockquote',{'class':'pv-recommendation-entity__text relative'}).get_text().strip().split('\n')[0].strip()
+            '''recommend.append({
+                'header':{
+                    'name':
+                }
+            })'''
+            
+        
+            
+    
+    
+    
+    
 
