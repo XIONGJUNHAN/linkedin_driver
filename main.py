@@ -13,7 +13,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 
-def login(username=None, password=None, profile=None, recreate_profile=False):
+def login(username=None, password=None, profile=None, recreate_profile=False, proxies=None):
     '''
     Accepts: username/password.
     Returns: driver with logged-in state.
@@ -23,7 +23,7 @@ def login(username=None, password=None, profile=None, recreate_profile=False):
     #
     # 1. LinkedIn asks to verify e-mail address if it sees too often log-ins.
     # 2. LinkedIn asks to enter phone number
-    driver = get_driver(recreate_profile=recreate_profile)
+    driver = get_driver(recreate_profile=recreate_profile, proxies=proxies)
     driver.get(__site_url__)
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
 
@@ -58,6 +58,11 @@ def login(username=None, password=None, profile=None, recreate_profile=False):
 
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
 
+    asks_something = soup.find('h2', {'class': 'headline'})
+    if asks_something is not None:
+        if asks_something.text == 'Add a phone number':
+            raise Exception('LinkedIn asks for Phone Number, suggest using proxies, for example, just pass get_driver(proxies={"socksProxy": "127.0.0.1:9999"})...')
+
     if soup.find('li', {'id': 'profile-nav-item'}):
         return driver
     else:
@@ -86,10 +91,20 @@ def open_contact(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     close = driver.find_element_by_class_name('artdeco-dismiss')
     ActionChains(driver).move_to_element(close).click().perform()
 
+    #
+    # close_card =  contact_soup.find('div', {'class': 'pv-uedit-photo-card'})
+    # if close_card is not None:
+    #     try:
+    #     driver.find_element_by_class_name('pv-uedit-photo-card__dismiss').click()
+    #     explain the reasons why op-out-of-photo
+    #
+
     return contact
 
 
-def scroll_to_bottom():
+def scroll_to_bottom(contact_url='https://www.linkedin.com/in/austinoboyle/'):
+    if contact_url is not None:
+        driver.get(contact_url)
     #Scroll to the bottom of the page
     expandable_button_selectors = [
         'button[aria-expanded="false"].pv-skills-section__additional-skills',
@@ -115,102 +130,138 @@ def scroll_to_bottom():
         time.sleep(0.4)
 
 
-def extract_interest(sou):
-    box = []
-    for item in sou.find_all('li',{'class' : 'entity-list-item'}):
-        box.append({
-            'img':item.find('img')['src'],
-            'name':item.find('span',{'class':'pv-entity__summary-title-text'}).text,
-            'number of followers':item.find('p',{'class':'pv-entity__follower-count'}).text.split(" ")[0]
-        })
-    return box
-
-
-def open_interest():
+def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     '''if it crashes, try it several times'''
-    see_interest = driver.find_element_by_css_selector('a[data-control-name="view_interest_details"]')
-    ActionChains(driver).move_to_element(see_interest).click().perform()
 
-    interest_selector = ['a[data-control-name="following_companies"]','a[data-control-name="following_groups"]','a[data-control-name="following_schools"]']
+    driver.get(urllib.parse.urljoin(contact_url, 'detail/interests/companies/'))
+
+    interest_selector = [
+        'a[data-control-name="following_companies"]',
+        'a[data-control-name="following_groups"]',
+        'a[data-control-name="following_schools"]']
 
     interests = []
+
+    def extract_interest(soup):
+        '''
+        helper function to extract each interest
+        '''
+        box = []
+        for item in soup.find_all('li',{'class' : 'entity-list-item'}):
+            box.append({
+                'img':item.find('img')['src'],
+                'name':item.find('span',{'class':'pv-entity__summary-title-text'}).text,
+                'number of followers':item.find('p',{'class':'pv-entity__follower-count'}).text.split(" ")[0]
+            })
+        return box
 
     for name in interest_selector:
         try:
             driver.find_element_by_css_selector(name).click()
-            soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
+            soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
             interests.append(extract_interest(soup))
         except:
             pass
-    print(interests)
+
     close = driver.find_element_by_class_name('artdeco-dismiss')
-    ActionChains(driver).move_to_element(close).click().perform()
+    close.click()
+
+    return interests
 
 
+def open_accomplishments():
+    ''' To be executed only after the .scroll_to_bottom()'''
 
-def text_or_default_accomp(element, selector, default=None):
-    try:
-        s = element.select_one(selector).get_text().strip().split('\n')
-        if len(s) == 2:
-            return s[1].strip()
-        else:
-            return s[0].strip()
-    except Exception as e:
-        return default
-
-
-def open_accompliments():
-
-    soup0 = bs4.BeautifulSoup(driver.page_source,'html.parser')
+    soup0 = bs4.BeautifulSoup(driver.page_source, 'html.parser')
 
     classification = []
-
-    for cla in soup0.find_all('h3',{'class':'pv-accomplishments-block__title'}):
+    for cla in soup0.find_all('h3', {'class':'pv-accomplishments-block__title'}):
         classification.append(cla.text)
 
-    accomp_expand = driver.find_elements_by_class_name('pv-accomplishments-block__expand')
+    def text_or_default_accomp(element, selector, default=None):
+        '''
+        helper function to extract item details
+        '''
+        try:
+            s = element.select_one(selector).get_text().strip().split('\n')
+            if len(s) == 2:
+                return s[1].strip()
+            else:
+                return s[0].strip()
+        except Exception as e:
+            return default
 
-    expand_box = soup0.find_all(class_ = 'pv-profile-section__see-more-inline')
-
-    count = 0
-    for btn in expand_box:
-        if 'aria-controls' in btn.attrs:
+    for i in range(1, 50):
+        accomp_expand = driver.find_elements_by_class_name('artdeco-icon--{}'.format(i))
+        if accomp_expand is not None:
+            if hasattr(accomp_expand, 'click'):
+                accomp_expand.click()
+            else:
+                break
+        else:
             break
-        count+=1
 
+
+
+    driver.find_element_by_class_name('pv-accomplishments-block__expand').click()
+
+
+    for item in accomp_expand[::-1]:
+        ActionChains(driver).move_to_element(item).click().perform()
+
+    time.sleep(1)
+
+    accomp_more = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')
+    for item in accomp_more[::-1]:
+        ActionChains(driver).move_to_element(item).click().perform()
+
+    expand_box = soup0.find_all(class_='pv-profile-section__see-more-inline')
+
+    # count = 0
+    # for btn in expand_box:
+    #     if 'aria-controls' in btn.attrs:
+    #         break
+    #     count += 1
 
     content = []
     for accomp in accomp_expand:
-            ActionChains(driver).move_to_element(accomp).click().perform()
-            expand_btn = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')[count:]
-            for btn in expand_btn:
-                try:
-                    ActionChains(driver).move_to_element(btn).click().perform()
-                except:
-                    pass
 
-            soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
+        accomp.click()
 
-            class_block = soup.find_all('li',{'class':'pv-accomplishment-entity--expanded'})
+        expand_btn = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')[count:]
+        for btn in expand_btn:
+            try:
+                ActionChains(driver).move_to_element(btn).click().perform()
+            except:
+                pass
 
-            title = '.pv-accomplishment-entity__title'
-            date = '.pv-accomplishment-entity__date'
-            issuer = '.pv-accomplishment-entity__issuer'
-            description = '.pv-accomplishment-entity__description'
+        soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
 
-            cont = []
-            for item in class_block:
-                cont.append({
-                    'title':text_or_default_accomp(item,title),
-                    'subtitle':{'date':text_or_default_accomp(item,date),'issuer':text_or_default_accomp(item,issuer)},
-                   'description':text_or_default_accomp(item,description)
-                })
+        class_block = soup.find_all('li',{'class':'pv-accomplishment-entity--expanded'})
 
-            content.append(cont)
+        title = '.pv-accomplishment-entity__title'
+        date = '.pv-accomplishment-entity__date'
+        issuer = '.pv-accomplishment-entity__issuer'
+        description = '.pv-accomplishment-entity__description'
+
+        cont = []
+
+
+
+        for item in class_block:
+            cont.append({
+                'title':text_or_default_accomp(item,title),
+                'subtitle':{'date':text_or_default_accomp(item,date),'issuer':text_or_default_accomp(item,issuer)},
+               'description':text_or_default_accomp(item,description)
+            })
+
+        content.append(cont)
 
 
     result = zip(classification,content)
-    print(list(result))
+
+    return list(result)
+
 
 def open_more():
     eles= driver.find_elements_by_css_selector('.lt-line-clamp__more')
@@ -452,15 +503,33 @@ def skills(soup):
 if __name__ == '__main__':
     self = sys.modules[__name__]
 
-    driver = login('numerai@mindey.com', 'meOH6pp5uaW0')
-    data = open_contact('https://www.linkedin.com/in/austinoboyle/')
-    print(data)
+    # LOGIN
+    driver = login(
+        'numerai@mindey.com', 'meOH6pp5uaW0',
+        proxies={"socksProxy": "127.0.0.1:9999"})
 
-    # scroll_to_bottom()
-    # open_interest() # close
-    # open_interest()
-    #
-    # open_accomplishments()
+    record = {}
+
+    # GET INTERESTS DETAILS
+    interests_data = open_interest('https://www.linkedin.com/in/austinoboyle/')
+    record.update({'interests': interests_data})
+
+    # GET CONTACT DETAILS
+    contact_data = open_contact('https://www.linkedin.com/in/austinoboyle/')
+    record.update({'contact': contact_data})
+
+
+    # PROCEDURE
+    # 6496184579081138176
+    scroll_to_bottom(contact_url='https://www.linkedin.com/in/austinoboyle/')
+
+    # GET ACCOMPLISHMENTS DETAILS
+    # accomplishments_data = open_accomplishments()
+    # record.update({'accomplishments': accomplishments_data})
+
+    print(record)
+
+
     # open_more()
     #
     # 开一个
