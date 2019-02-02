@@ -479,41 +479,43 @@ def skills(soup):
             x['endorsements'].replace('+', '')) if x['endorsements'] else 0
         return sorted(skills, key=sort_skills, reverse=True)
 
-def get_recommendations():
-    tab = wd.find_elements_by_tag_name('artdeco-tab')
-    expand = wd.find_elements_by_class_name('pv-profile-section__see-more-inline')
-
+def recommendations():
+    tab = driver.find_elements_by_tag_name('artdeco-tab')
+    expand = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')
     #'show more' btn in the first tab item was clicked in scroll_to_bottom, we only need to click the 'show more' in the other items
     for item in tab[1:]:
-        ActionChains(wd).move_to_element(item).click().perform()
+        ActionChains(driver).move_to_element(item).perform()
+        driver.execute_script('arguments[0].click();',item)
         for btn in expand:
             try:
-                ActionChains(wd).move_to_element(btn).click().perform()
+                ActionChains(driver).move_to_element(btn).perform()
+                driver.execute_script('arguments[0].click();',btn)
             except:
                 pass
 
-    more = wd.find_elements_by_class_name('lt-line-clamp__more')
+    more = driver.find_elements_by_class_name('lt-line-clamp__more')
 
     for item in tab:
-        ActionChains(wd).move_to_element(item).click().perform()
+        ActionChains(driver).move_to_element(item).perform()
+        driver.execute_script('arguments[0].click();',item)
         for btn in more:
             try:
-                wd.execute_script('arguments[0].disabled = true;',btn)
-                wd.execute_script('arguments[0].click();',btn)
+                ActionChains(driver).move_to_element(btn).perform()
+                driver.execute_script('arguments[0].click();',btn)
             except:
                 pass
 
-    soup = BeautifulSoup(wd.page_source,'html.parser')
+    soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
     recom = soup.find_all('artdeco-tabpanel')
 
+    
     recommend = []
-
     for panel in recom:
 
         recom_list = panel.find(
             'ul', {'class':'section-info'}).find_all(
                 'li',{'class':'pv-recommendation-entity'})
-
+        recom = []
         for item in recom_list:
 
             giver_intro = item.find(
@@ -523,21 +525,28 @@ def get_recommendations():
             giver_job = giver_intro[1].strip()
             companian_time = giver_intro[3].strip()
 
-            giver_img = item.find(
-                'a', {'data-control-name':'recommendation_details_profile'})
+            giver_img = 'https://www.linkedin.com'+item.find(
+                'a', {'data-control-name':'recommendation_details_profile'})['href']
 
             giver_recom = item.find(
                 'blockquote', {'class':'pv-recommendation-entity__text relative'}).get_text().strip().split('\n')[0].strip()
 
-            '''recommend.append({
+            recom.append({
                 'header':{
-                    'name':
-                }
+                    'name': giver_name,
+                    'job': giver_job,
+                    'companiam_time':companian_time,
+                    'img':giver_img
+                },
+                'recommend':giver_recom
             })
-            '''
-            'msg-overlay-bubble-header '
-
-
+        recommend.append(recom)
+    
+    classification = ['Received','Given']
+    result = zip(classification,recommend)
+    return list(result)
+        
+     
 if __name__ == '__main__':
     # self = sys.modules[__name__]
 
@@ -565,7 +574,8 @@ if __name__ == '__main__':
     record.update({'accomplishments': accomplishments_data})
 
     # GET RECOMMENDATIONS
-    # ---
+    recommendations_data = recommendations()
+    record.update({'recommendations':recommendations_data})
 
     # OPEN MORE
     open_more()
