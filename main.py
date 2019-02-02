@@ -13,21 +13,6 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 
-# class Utils:
-#     def func1(self, a,b):
-#         return a+b
-
-#     def func2(self, a,b):
-#         return a-b
-
-# utils = Utils()
-#
-# utils.func1(1,2)
-#
-
-# import utils
-# utils.func1(1,2)
-#
 
 def login(username=None, password=None, profile=None, recreate_profile=False, proxies=None):
     '''
@@ -221,7 +206,7 @@ def open_accomplishments():
     for accomp in accomp_expand:
         ActionChains(driver).move_to_element(accomp).perform()
         time.sleep(1)
-        #accomp.click()
+        #accomp.click() # <- not working
         driver.execute_script('arguments[0].click();', accomp)
 
         expand_btn = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')[count:]
@@ -229,7 +214,7 @@ def open_accomplishments():
             try:
                 ActionChains(driver).move_to_element(btn).perform()
                 time.sleep(1)
-                # btn.click()
+                # btn.click() # <- not working
                 driver.execute_script('arguments[0].click();', btn)
             except:
                 pass
@@ -494,6 +479,64 @@ def skills(soup):
             x['endorsements'].replace('+', '')) if x['endorsements'] else 0
         return sorted(skills, key=sort_skills, reverse=True)
 
+def get_recommendations():
+    tab = wd.find_elements_by_tag_name('artdeco-tab')
+    expand = wd.find_elements_by_class_name('pv-profile-section__see-more-inline')
+
+    #'show more' btn in the first tab item was clicked in scroll_to_bottom, we only need to click the 'show more' in the other items
+    for item in tab[1:]:
+        ActionChains(wd).move_to_element(item).click().perform()
+        for btn in expand:
+            try:
+                ActionChains(wd).move_to_element(btn).click().perform()
+            except:
+                pass
+
+    more = wd.find_elements_by_class_name('lt-line-clamp__more')
+
+    for item in tab:
+        ActionChains(wd).move_to_element(item).click().perform()
+        for btn in more:
+            try:
+                wd.execute_script('arguments[0].disabled = true;',btn)
+                wd.execute_script('arguments[0].click();',btn)
+            except:
+                pass
+
+    soup = BeautifulSoup(wd.page_source,'html.parser')
+    recom = soup.find_all('artdeco-tabpanel')
+
+    recommend = []
+
+    for panel in recom:
+
+        recom_list = panel.find(
+            'ul', {'class':'section-info'}).find_all(
+                'li',{'class':'pv-recommendation-entity'})
+
+        for item in recom_list:
+
+            giver_intro = item.find(
+                'div', {'class':'pv-recommendation-entity__detail'}).get_text().strip().split('\n')
+
+            giver_name = giver_intro[0].strip()
+            giver_job = giver_intro[1].strip()
+            companian_time = giver_intro[3].strip()
+
+            giver_img = item.find(
+                'a', {'data-control-name':'recommendation_details_profile'})
+
+            giver_recom = item.find(
+                'blockquote', {'class':'pv-recommendation-entity__text relative'}).get_text().strip().split('\n')[0].strip()
+
+            '''recommend.append({
+                'header':{
+                    'name':
+                }
+            })
+            '''
+            'msg-overlay-bubble-header '
+
 
 if __name__ == '__main__':
     # self = sys.modules[__name__]
@@ -521,59 +564,23 @@ if __name__ == '__main__':
     accomplishments_data = open_accomplishments()
     record.update({'accomplishments': accomplishments_data})
 
-    print(record)
+    # GET RECOMMENDATIONS
+    # ---
+
+    # OPEN MORE
+    open_more()
+
+    # MAKE SOUP
+    soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+    personal_info_data = personal_info(soup)
+    record.update({'personal_info': personal_info_data})
+
+    experiences_data = experiences(soup)
+    record.update({'experiences': experiences_data})
+
+    skills_data = skills(soup)
+    record.update({'skills': skills_data})
+
     driver.quit()
 
-    # open_more()
-    #
-    # 开一个
-    # soup
-    #
-    # personal_info(soup)
-    # experiences(soup)
-    # skills(soup)
-    #
-
-
-
-
-    # self.open_contact() # needs to be called twice, #must run the function in turns
-    # self.scroll_to_bottom()
-    # self.extract_interest(sou)
-    # self.open_interest() # if it crashes, try it several times
-    # self.text_or_default_accomp(element, selector, default=None)
-    # self.open_accompliments()
-    # self.open_more()
-
-    # soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
-    # self.flatten_list(l)
-    # self.one_or_default(element, selector, default=None)
-    # self.text_or_default(element, selector, default=None)
-    # self.all_or_default(element, selector, default=[])
-    # self.get_info(element, mapping, default=None)
-    # self.get_job_info(job)
-    # self.get_school_info(school)
-    # self.get_volunteer_info(exp)
-    # self.get_skill_info(skill)
-
-    # ---
-    # self.personal_info(soup)
-    # self.experiences(soup)
-    # self.skills(soup)
-
-    #killsrint('We Execute')
-
-
-
-# def hello(data):
-#
-#     print('computing list')
-#
-#     def multiply(n,m):
-#         return (2*n)*m
-#
-#     result = [multiply(item[0], item[1]) for item in data]
-#
-#     return result
-#
-# hello([(1,2), (4, 8), (1111, 8888)])
+    print(record)
