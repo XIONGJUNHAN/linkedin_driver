@@ -13,17 +13,34 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 
+# class Utils:
+#     def func1(self, a,b):
+#         return a+b
+
+#     def func2(self, a,b):
+#         return a-b
+
+# utils = Utils()
+#
+# utils.func1(1,2)
+#
+
+# import utils
+# utils.func1(1,2)
+#
+
 def login(username=None, password=None, profile=None, recreate_profile=False, proxies=None):
     '''
     Accepts: username/password.
     Returns: driver with logged-in state.
+    wd
     '''
     # TODO:
     # Handle this in the future:
     #
     # 1. LinkedIn asks to verify e-mail address if it sees too often log-ins.
     # 2. LinkedIn asks to enter phone number
-    driver = get_driver(recreate_profile=recreate_profile, proxies=proxies)
+    driver = get_driver(recreate_profile=recreate_profile)
     driver.get(__site_url__)
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
 
@@ -169,69 +186,51 @@ def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     return interests
 
 
-def open_accomplishments():
-    ''' To be executed only after the .scroll_to_bottom()'''
+def text_or_default_accomp(element, selector, default=None):
+    try:
+        s = element.select_one(selector).get_text().strip().split('\n')
+        if len(s) == 2:
+            return s[1].strip()
+        else:
+            return s[0].strip()
+    except Exception as e:
+        return default
 
-    soup0 = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+
+def open_accomplishments():
+
+    soup0 = bs4.BeautifulSoup(driver.page_source,'html.parser')
 
     classification = []
-    for cla in soup0.find_all('h3', {'class':'pv-accomplishments-block__title'}):
+
+    for cla in soup0.find_all('h3',{'class':'pv-accomplishments-block__title'}):
         classification.append(cla.text)
 
-    def text_or_default_accomp(element, selector, default=None):
-        '''
-        helper function to extract item details
-        '''
-        try:
-            s = element.select_one(selector).get_text().strip().split('\n')
-            if len(s) == 2:
-                return s[1].strip()
-            else:
-                return s[0].strip()
-        except Exception as e:
-            return default
+    accomp_expand = driver.find_elements_by_class_name('pv-accomplishments-block__expand')
 
-    for i in range(1, 50):
-        accomp_expand = driver.find_elements_by_class_name('artdeco-icon--{}'.format(i))
-        if accomp_expand is not None:
-            if hasattr(accomp_expand, 'click'):
-                accomp_expand.click()
-            else:
-                break
-        else:
+    expand_box = soup0.find_all(class_ = 'pv-profile-section__see-more-inline')
+
+    count = 0
+    for btn in expand_box:
+        if 'aria-controls' in btn.attrs:
             break
+        count+=1
 
-
-
-    driver.find_element_by_class_name('pv-accomplishments-block__expand').click()
-
-
-    for item in accomp_expand[::-1]:
-        ActionChains(driver).move_to_element(item).click().perform()
-
-    time.sleep(1)
-
-    accomp_more = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')
-    for item in accomp_more[::-1]:
-        ActionChains(driver).move_to_element(item).click().perform()
-
-    expand_box = soup0.find_all(class_='pv-profile-section__see-more-inline')
-
-    # count = 0
-    # for btn in expand_box:
-    #     if 'aria-controls' in btn.attrs:
-    #         break
-    #     count += 1
 
     content = []
     for accomp in accomp_expand:
-
-        accomp.click()
+        ActionChains(driver).move_to_element(accomp).perform()
+        time.sleep(1)
+        #accomp.click()
+        driver.execute_script('arguments[0].click();', accomp)
 
         expand_btn = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')[count:]
         for btn in expand_btn:
             try:
-                ActionChains(driver).move_to_element(btn).click().perform()
+                ActionChains(driver).move_to_element(btn).perform()
+                time.sleep(1)
+                # btn.click()
+                driver.execute_script('arguments[0].click();', btn)
             except:
                 pass
 
@@ -245,9 +244,6 @@ def open_accomplishments():
         description = '.pv-accomplishment-entity__description'
 
         cont = []
-
-
-
         for item in class_block:
             cont.append({
                 'title':text_or_default_accomp(item,title),
@@ -259,7 +255,6 @@ def open_accomplishments():
 
 
     result = zip(classification,content)
-
     return list(result)
 
 
@@ -501,12 +496,11 @@ def skills(soup):
 
 
 if __name__ == '__main__':
-    self = sys.modules[__name__]
+    # self = sys.modules[__name__]
 
     # LOGIN
-    driver = login(
-        'numerai@mindey.com', 'meOH6pp5uaW0',
-        proxies={"socksProxy": "127.0.0.1:9999"})
+    driver = login('numerai@mindey.com', 'meOH6pp5uaW0')
+        # proxies={"socksProxy": "127.0.0.1:9999"})
 
     record = {}
 
@@ -524,11 +518,11 @@ if __name__ == '__main__':
     scroll_to_bottom(contact_url='https://www.linkedin.com/in/austinoboyle/')
 
     # GET ACCOMPLISHMENTS DETAILS
-    # accomplishments_data = open_accomplishments()
-    # record.update({'accomplishments': accomplishments_data})
+    accomplishments_data = open_accomplishments()
+    record.update({'accomplishments': accomplishments_data})
 
     print(record)
-
+    driver.quit()
 
     # open_more()
     #
@@ -568,3 +562,18 @@ if __name__ == '__main__':
     # self.skills(soup)
 
     #killsrint('We Execute')
+
+
+
+# def hello(data):
+#
+#     print('computing list')
+#
+#     def multiply(n,m):
+#         return (2*n)*m
+#
+#     result = [multiply(item[0], item[1]) for item in data]
+#
+#     return result
+#
+# hello([(1,2), (4, 8), (1111, 8888)])
