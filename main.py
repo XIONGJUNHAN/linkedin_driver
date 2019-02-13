@@ -13,6 +13,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 
+import logging
+
 
 def login(username=None, password=None, profile=None, recreate_profile=False, proxies=None):
     '''
@@ -25,7 +27,11 @@ def login(username=None, password=None, profile=None, recreate_profile=False, pr
     #
     # 1. LinkedIn asks to verify e-mail address if it sees too often log-ins.
     # 2. LinkedIn asks to enter phone number
-    driver = get_driver(recreate_profile=recreate_profile)
+    if proxies is not None:
+        driver = get_driver(recreate_profile=recreate_profile, proxies=proxies)
+    else:
+        driver = get_driver(recreate_profile=recreate_profile)
+
     driver.get(__site_url__)
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
 
@@ -78,17 +84,31 @@ def open_contact(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     contact_soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
 
     career_card = contact_soup.find('section', {'class': 'pv-contact-info__contact-type ci-vanity-url'})
-    profile_url = [search['href'] for search in career_card.find_all('a')]
+    if career_card is not None:
+        profile_url = [search['href'] for search in career_card.find_all('a')]
+    else:
+        profile_url = None
+        logging.warning('profle not found.')
 
     website = contact_soup.find('section', {'class': 'pv-contact-info__contact-type ci-websites'})
-    web_url = [search['href'] for search in website.find_all('a')]
+    if website is not None:
+        web_url = [search['href'] for search in website.find_all('a')]
+        web_type = [search.text.strip() for search in website.find_all('span')]
+        websites = []
+        for i in range(len(web_url)):
+            websites.append({'type':web_type[i],'url':web_url[i]})
+    else:
+        websites = None
+        logging.warning('websites not found.')
 
-    web_type = [search.text.strip() for search in website.find_all('span')]
-    websites = []
-    for i in range(len(web_url)):
-        websites.append({'type':web_type[i],'url':web_url[i]})
+    twitter = contact_soup.find('section', {'class': 'pv-contact-info__contact-type ci-twitter'})
+    if twitter is not None:
+        twitter_url = twitter.find('a')['href']
+    else:
+        twitter_url = None
 
-    contact = {"profile_url": profile_url, "websites": websites}
+
+    contact = {"profile_url": profile_url, "websites": websites,'twitter':twitter_url}
 
     close = driver.find_element_by_class_name('artdeco-dismiss')
     ActionChains(driver).move_to_element(close).click().perform()
@@ -481,93 +501,104 @@ def skills(soup):
 
 def recommendations():
     tab = driver.find_elements_by_tag_name('artdeco-tab')
-    expand = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')
-    #'show more' btn in the first tab item was clicked in scroll_to_bottom, we only need to click the 'show more' in the other items
-    for item in tab[1:]:
-        ActionChains(driver).move_to_element(item).perform()
-        driver.execute_script('arguments[0].click();',item)
-        for btn in expand:
-            try:
-                ActionChains(driver).move_to_element(btn).perform()
-                driver.execute_script('arguments[0].click();',btn)
-            except:
-                pass
+    if tab is None:
+        logging.warning('Not found.')
+        return []
+    else:
+        expand = driver.find_elements_by_class_name('pv-profile-section__see-more-inline')
+        #'show more' btn in the first tab item was clicked in scroll_to_bottom, we only need to click the 'show more' in the other items
+        for item in tab[1:]:
+            ActionChains(driver).move_to_element(item).perform()
+            driver.execute_script('arguments[0].click();',item)
+            for btn in expand:
+                try:
+                    ActionChains(driver).move_to_element(btn).perform()
+                    driver.execute_script('arguments[0].click();',btn)
+                except:
+                    pass
 
-    more = driver.find_elements_by_class_name('lt-line-clamp__more')
+        more = driver.find_elements_by_class_name('lt-line-clamp__more')
 
-    for item in tab:
-        ActionChains(driver).move_to_element(item).perform()
-        driver.execute_script('arguments[0].click();',item)
-        for btn in more:
-            try:
-                ActionChains(driver).move_to_element(btn).perform()
-                driver.execute_script('arguments[0].click();',btn)
-            except:
-                pass
+        for item in tab:
+            ActionChains(driver).move_to_element(item).perform()
+            driver.execute_script('arguments[0].click();',item)
+            for btn in more:
+                try:
+                    ActionChains(driver).move_to_element(btn).perform()
+                    driver.execute_script('arguments[0].click();',btn)
+                except:
+                    pass
 
-    soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
-    recom = soup.find_all('artdeco-tabpanel')
+        soup = bs4.BeautifulSoup(driver.page_source,'html.parser')
+        recom = soup.find_all('artdeco-tabpanel')
 
-    
-    recommend = []
-    for panel in recom:
 
-        recom_list = panel.find(
-            'ul', {'class':'section-info'}).find_all(
-                'li',{'class':'pv-recommendation-entity'})
-        recom = []
-        for item in recom_list:
+        recommend = []
+        for panel in recom:
+            recom_box = panel.find(
+                'ul', {'class':'section-info'})
+            
+            recom = []
+            
+            if recom_box is None:
+                recommend.append([])
+                continue
+            else:
+                recom_list = recom_box.find_all(
+                    'li',{'class':'pv-recommendation-entity'})
+            
+                for item in recom_list:
 
-            giver_intro = item.find(
-                'div', {'class':'pv-recommendation-entity__detail'}).get_text().strip().split('\n')
+                    giver_intro = item.find(
+                        'div', {'class':'pv-recommendation-entity__detail'}).get_text().strip().split('\n')
 
-            giver_name = giver_intro[0].strip()
-            giver_job = giver_intro[1].strip()
-            companian_time = giver_intro[3].strip()
+                    giver_name = giver_intro[0].strip()
+                    giver_job = giver_intro[1].strip()
+                    companian_time = giver_intro[3].strip()
 
-            giver_img = 'https://www.linkedin.com'+item.find(
-                'a', {'data-control-name':'recommendation_details_profile'})['href']
+                    giver_img = 'https://www.linkedin.com'+item.find(
+                        'a', {'data-control-name':'recommendation_details_profile'})['href']
 
-            giver_recom = item.find(
-                'blockquote', {'class':'pv-recommendation-entity__text relative'}).get_text().strip().split('\n')[0].strip()
+                    giver_recom = item.find(
+                        'blockquote', {'class':'pv-recommendation-entity__text relative'}).get_text().strip().split('\n')[0].strip()
 
-            recom.append({
-                'header':{
-                    'name': giver_name,
-                    'job': giver_job,
-                    'companiam_time':companian_time,
-                    'img':giver_img
-                },
-                'recommend':giver_recom
-            })
-        recommend.append(recom)
-    
-    classification = ['Received','Given']
-    result = zip(classification,recommend)
-    return list(result)
-        
-     
+                    recom.append({
+                        'header':{
+                            'name': giver_name,
+                            'job': giver_job,
+                            'companiam_time':companian_time,
+                            'img':giver_img
+                        },
+                        'recommend':giver_recom
+                    })
+
+                recommend.append(recom)
+
+        classification = ['Received','Given']
+        result = zip(classification,recommend)
+        return list(result)
+
 if __name__ == '__main__':
     # self = sys.modules[__name__]
 
     # LOGIN
-    driver = login('numerai@mindey.com', 'meOH6pp5uaW0')
-        # proxies={"socksProxy": "127.0.0.1:9999"})
+    driver = login('3168095199@qq.com', 'shelock007', proxies={"socksProxy": "127.0.0.1:1080"})
+
 
     record = {}
 
     # GET INTERESTS DETAILS
-    interests_data = open_interest('https://www.linkedin.com/in/austinoboyle/')
+    interests_data = open_interest('https://www.linkedin.com/in/tong-xiaoting-47434911a/')
     record.update({'interests': interests_data})
 
     # GET CONTACT DETAILS
-    contact_data = open_contact('https://www.linkedin.com/in/austinoboyle/')
+    contact_data = open_contact('https://www.linkedin.com/in/tong-xiaoting-47434911a/')
     record.update({'contact': contact_data})
 
 
     # PROCEDURE
     # 6496184579081138176
-    scroll_to_bottom(contact_url='https://www.linkedin.com/in/austinoboyle/')
+    scroll_to_bottom(contact_url='https://www.linkedin.com/in/tong-xiaoting-47434911a/')
 
     # GET ACCOMPLISHMENTS DETAILS
     accomplishments_data = open_accomplishments()
