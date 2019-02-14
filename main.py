@@ -155,6 +155,7 @@ def scroll_to_bottom(contact_url='https://www.linkedin.com/in/austinoboyle/'):
 def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     '''if it crashes, try it several times'''
 
+    # driver.get(urllib.parse.urljoin(contact_url, 'detail/interests'))
     driver.get(urllib.parse.urljoin(contact_url, 'detail/interests/companies/'))
 
     interest_selector = [
@@ -180,6 +181,8 @@ def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     for name in interest_selector:
         try:
             driver.find_element_by_css_selector(name).click()
+            # driver.execute_script(
+            # "window.scrollTo(0, document.body.scrollHeight));")
             soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
             interests.append(extract_interest(soup))
         except:
@@ -537,16 +540,16 @@ def recommendations():
         for panel in recom:
             recom_box = panel.find(
                 'ul', {'class':'section-info'})
-            
+
             recom = []
-            
+
             if recom_box is None:
                 recommend.append([])
                 continue
             else:
                 recom_list = recom_box.find_all(
                     'li',{'class':'pv-recommendation-entity'})
-            
+
                 for item in recom_list:
 
                     giver_intro = item.find(
