@@ -99,7 +99,6 @@ def open_contact(contact_url='https://www.linkedin.com/in/austinoboyle/'):
             websites.append({'type':web_type[i],'url':web_url[i]})
     else:
         websites = None
-        logging.warning('websites not found.')
 
     twitter = contact_soup.find('section', {'class': 'pv-contact-info__contact-type ci-twitter'})
     if twitter is not None:
@@ -155,8 +154,8 @@ def scroll_to_bottom(contact_url='https://www.linkedin.com/in/austinoboyle/'):
 def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     '''if it crashes, try it several times'''
 
-    # driver.get(urllib.parse.urljoin(contact_url, 'detail/interests'))
-    driver.get(urllib.parse.urljoin(contact_url, 'detail/interests/companies/'))
+    driver.get(urllib.parse.urljoin(contact_url, 'detail/interests'))
+    #driver.get(urllib.parse.urljoin(contact_url, 'detail/interests/companies/'))
 
     interest_selector = [
         'a[data-control-name="following_companies"]',
@@ -172,7 +171,7 @@ def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
         box = []
         for item in soup.find_all('li',{'class' : 'entity-list-item'}):
             box.append({
-                'img':item.find('img')['src'],
+                'img':item.find('img',{"src":True}),
                 'name':item.find('span',{'class':'pv-entity__summary-title-text'}).text,
                 'number of followers':item.find('p',{'class':'pv-entity__follower-count'}).text.split(" ")[0]
             })
@@ -181,17 +180,26 @@ def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
     for name in interest_selector:
         try:
             driver.find_element_by_css_selector(name).click()
-            # driver.execute_script(
-            # "window.scrollTo(0, document.body.scrollHeight));")
-            soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
-            interests.append(extract_interest(soup))
         except:
             pass
-
+        try:
+            list_wrapper =  driver.find_element_by_xpath('//div[@class="entity-list-wrapper ember-view"]//a')
+            list_wrapper.send_keys(Keys.END)
+            time.sleep(2)
+        except:
+            soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+            interests.append(extract_interest(soup))
+            pass
+        soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+        interests.append(extract_interest(soup))
+    
+    classification = ['companies','groups','schools']
+    result = zip(classification,interests)
+        
     close = driver.find_element_by_class_name('artdeco-dismiss')
     close.click()
 
-    return interests
+    return list(result)
 
 
 def text_or_default_accomp(element, selector, default=None):
@@ -450,9 +458,9 @@ def personal_info(soup):
             image_div = one_or_default(top_card, '.pv-top-card-section__photo')
             style_string = image_div['style']
             pattern = re.compile('background-image: url\("(.*?)"')
-            matches = pattern.match(style_string).groups()
+            matches = pattern.match(style_string)
             if matches:
-                image_url = matches[0]
+                image_url = matches.groups()[0]
 
         personal_info['image'] = image_url
 
@@ -591,17 +599,17 @@ if __name__ == '__main__':
     record = {}
 
     # GET INTERESTS DETAILS
-    interests_data = open_interest('https://www.linkedin.com/in/tong-xiaoting-47434911a/')
+    interests_data = open_interest('')
     record.update({'interests': interests_data})
 
     # GET CONTACT DETAILS
-    contact_data = open_contact('https://www.linkedin.com/in/tong-xiaoting-47434911a/')
+    contact_data = open_contact('')
     record.update({'contact': contact_data})
 
 
     # PROCEDURE
     # 6496184579081138176
-    scroll_to_bottom(contact_url='https://www.linkedin.com/in/tong-xiaoting-47434911a/')
+    scroll_to_bottom(contact_url='')
 
     # GET ACCOMPLISHMENTS DETAILS
     accomplishments_data = open_accomplishments()
