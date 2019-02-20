@@ -171,7 +171,7 @@ def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
         box = []
         for item in soup.find_all('li',{'class' : 'entity-list-item'}):
             box.append({
-                'img':item.find('img',{"src":True}),
+                'img': (item.find('img',{"src":True}) or {}).get('src'),
                 'name':item.find('span',{'class':'pv-entity__summary-title-text'}).text,
                 'number of followers':item.find('p',{'class':'pv-entity__follower-count'}).text.split(" ")[0]
             })
@@ -182,17 +182,31 @@ def open_interest(contact_url='https://www.linkedin.com/in/austinoboyle/'):
             driver.find_element_by_css_selector(name).click()
         except:
             pass
+        
         try:
-            list_wrapper =  driver.find_element_by_xpath('//div[@class="entity-list-wrapper ember-view"]//a')
-            list_wrapper.send_keys(Keys.END)
-            time.sleep(2)
+            current_len = 0
+            name_set = set()
+            while True:
+                list_wrapper=driver.find_element_by_xpath('//div[@class="entity-list-wrapper ember-view"]//a')
+                list_wrapper.send_keys(Keys.END) 
+                time.sleep(5)
+                
+                soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+                name_list = soup.find_all('li',{'class' : 'entity-list-item'})
+                
+                last_name = name_list[-1].find('span',{'class':'pv-entity__summary-title-text'}).text
+                if last_name in name_set:
+                    soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+                    interests.append(extract_interest(soup))
+                    break
+                    
+                for item in name_list:
+                    item_name = item.find('span',{'class':'pv-entity__summary-title-text'}).text
+                    name_set.add(item_name)
+                
         except:
-            soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
-            interests.append(extract_interest(soup))
             pass
-        soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
-        interests.append(extract_interest(soup))
-    
+        
     classification = ['companies','groups','schools']
     result = zip(classification,interests)
         
