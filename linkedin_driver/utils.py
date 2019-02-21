@@ -8,6 +8,65 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 
+
+def filter_contacts(driver, keyword):
+
+    driver.get(
+        'https://www.linkedin.com/search/results/people/?keywords={query}&origin=GLOBAL_SEARCH_HEADER'.format(
+            query=keyword
+        )
+    )
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    element = WebDriverWait(driver, 10).until(lambda x: x.find_element_by_class_name("artdeco-pagination"))
+    print('el1', element)
+
+
+    while True:
+
+        def has_next():
+            soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+
+            if soup.find(
+                    'button', {
+                        'class': 'artdeco-pagination__button--next'}) is not None:
+                return soup
+            else:
+                return None
+
+        next_soup = has_next()
+
+        if next_soup is None:
+            print('ダメ')
+            break
+
+        contacts = next_soup.find_all('div', {'class': 'search-result__wrapper'})
+
+        for contact in contacts:
+            a = contact.find('a', {'class': 'search-result__result-link'})
+            if a is not None:
+                url = __site_url__ + a.attrs.get('href')
+            else:
+                url = None
+
+            img = contact.find('img', {'class': 'presence-entity__image'})
+            if img is not None:
+                image_url = img.attrs.get('src')
+                name = img.attrs.get('alt')
+            else:
+                name = None
+                image_url = None
+
+
+            yield({'url': url,
+                   'name': name,
+                   'image_url': image_url})
+
+
+        driver.find_element_by_class_name('artdeco-pagination__button--next').click()
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        element = WebDriverWait(driver, 10).until(lambda x: x.find_element_by_class_name("artdeco-pagination"))
+
+
 def open_contact(driver, contact_url):
     '''needs to be called twice'''
 

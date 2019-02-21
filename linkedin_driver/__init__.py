@@ -1,10 +1,9 @@
 __site_url__ = 'https://www.linkedin.com'
 
-# import sys
 import bs4
 import metadrive
-from metadrive._selenium import get_driver
 
+from metadrive._selenium import get_driver
 
 def _login(
         username=None,
@@ -73,22 +72,3 @@ def _login(
 
 def _harvest():
     raise NotImplemented
-
-
-if __name__ == '__main__':
-
-    # self = sys.modules[__name__]
-
-    # page = 'https://www.linkedin.com/in/austinoboyle/'
-    # page = 'https://www.linkedin.com/in/haoji-xu-954a9a125/'
-    # page = 'https://www.linkedin.com/in/mindey/'
-
-    # make proxy checks
-
-    # LOGIN
-    driver = login(
-        '3168095199@qq.com',
-        'shelock007',
-        proxies={
-            "socksProxy": "127.0.0.1:1080"}
-    )

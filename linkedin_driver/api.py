@@ -1,8 +1,10 @@
 from metatype import Dict
 
-from linkedin_driver import _login
+from linkedin_driver import _login, __site_url__
 
 from linkedin_driver.utils import (
+    filter_contacts,
+
     open_contact,
     scroll_to_bottom,
     open_interest,
@@ -24,19 +26,30 @@ from linkedin_driver.utils import (
     recommendations
 )
 
+from selenium.webdriver.support.wait import WebDriverWait
+
+
 
 class Contact(Dict):
+
+    @classmethod
+    def _filter(cls, keyword=None):
+        '''
+        Returns:
+            Iterator.
+        '''
+        driver = _login()
+
+        for item in filter_contacts(driver, keyword):
+            yield(cls(item))
+
+        driver.quit()
+        raise NotImplemented
 
     @classmethod
     def _get(cls, url):
 
         driver = _login()
-
-        #     '3168095199@qq.com',
-        #     'shelock007',
-        #     proxies={
-        #         "socksProxy": "127.0.0.1:1080"}
-        # )
 
         record = {}
 
@@ -81,10 +94,6 @@ class Contact(Dict):
 
         return cls(record)
 
-
-    @classmethod
-    def _filter(cls):
-        raise NotImplemented
 
     def send_message(self):
         raise NotImplemented
