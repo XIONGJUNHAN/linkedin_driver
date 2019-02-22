@@ -99,9 +99,23 @@ class Contact(Dict):
     def send_message(self):
         raise NotImplemented
 
+class Message(Dict):
+
+    @classmethod
+    def _get(self):
+        raise NotImplemented
+
+    @classmethod
+    def _filter(self):
+        raise NotImplemented
+
+    def _update(self):
+        raise NotImplemented
+
 
 class Post(Dict):
 
+    @classmethod
     def _get(self):
         raise NotImplemented
 
@@ -118,9 +132,11 @@ class Post(Dict):
 
 class Comment(Dict):
 
+    @classmethod
     def _get(self):
         raise NotImplemented
 
+    @classmethod
     def _filter(self):
         raise NotImplemented
 
@@ -129,8 +145,29 @@ class Comment(Dict):
 
 
 class PostLike(dict):
-    pass
+
+    @classmethod
+    def _get(self):
+        raise NotImplemented
+
+    @classmethod
+    def _filter(self):
+        raise NotImplemented
+
+    def _update(self):
+        raise NotImplemented
 
 
 class CommentLike(Dict):
-    pass
+
+    @classmethod
+    def _get(self):
+        raise NotImplemented
+
+    @classmethod
+    def _filter(self):
+        raise NotImplemented
+
+    def _update(self):
+        raise NotImplemented
+
