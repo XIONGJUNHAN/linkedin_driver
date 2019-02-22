@@ -8,6 +8,15 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 
+from linkedin_driver import __site_url__
+import time
+
+def scroll_slowly_down(driver, by=500):
+    height = driver.execute_script("return document.body.scrollHeight")
+
+    for i in range(height//by):
+        time.sleep(0.5)
+        driver.execute_script('window.scrollBy(0, {})'.format(by))
 
 def filter_contacts(driver, keyword):
 
@@ -16,10 +25,9 @@ def filter_contacts(driver, keyword):
             query=keyword
         )
     )
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    element = WebDriverWait(driver, 10).until(lambda x: x.find_element_by_class_name("artdeco-pagination"))
-    print('el1', element)
 
+    scroll_slowly_down(driver)
+    element = WebDriverWait(driver, 10).until(lambda x: x.find_element_by_class_name("artdeco-pagination"))
 
     while True:
 
@@ -42,6 +50,7 @@ def filter_contacts(driver, keyword):
         contacts = next_soup.find_all('div', {'class': 'search-result__wrapper'})
 
         for contact in contacts:
+
             a = contact.find('a', {'class': 'search-result__result-link'})
             if a is not None:
                 url = __site_url__ + a.attrs.get('href')
@@ -51,19 +60,66 @@ def filter_contacts(driver, keyword):
             img = contact.find('img', {'class': 'presence-entity__image'})
             if img is not None:
                 image_url = img.attrs.get('src')
-                name = img.attrs.get('alt')
-            else:
-                name = None
-                image_url = None
 
+            link = contact.find('a', {'data-control-name': 'search_srp_result'})
+            status = None
+            if link is not None:
+                link =  __site_url__ + link.attrs['href']
+                if hasattr(link, 'text'):
+                    status = link.text.strip()
+
+            name = contact.find('span', {'class': 'actor-name'})
+            if name is not None:
+                name = name.text
+
+            role = contact.find('p', {'class': 'subline-level-1'})
+            if role is not None:
+                role = role.text
+
+            location = contact.find('p', {'class': 'subline-level-2'})
+            if location is not None:
+                location = location.text.strip()
+
+            snippets = contact.find('p', {'class': 'search-result__snippets'})
+            if snippets is not None:
+                snippets = snippets.text.strip()
+
+            mutual_connections = contact.find('a', {'data-control-name': 'view_mutual_connections'})
+            mutual_connections_url = None
+            highlighted_connections = None
+            mutual_connections_count = None
+            if mutual_connections is not None:
+                mutual_connections_url = __site_url__ + mutual_connections.attrs['href']
+
+                mutual_connections_count = mutual_connections.find('span', {'class': 'search-result__social-proof-count'})
+                if mutual_connections_count is not None:
+                    mutual_connections_count = mutual_connections_count.text.strip()
+
+                highlighted_connections = mutual_connections.find('li', {'class': 'ivm-entity-pile__img-item--stacked'})
+                if highlighted_connections is not None:
+                    all_highlighted_connections = highlighted_connections.find_all('img')
+                    highlighted_connections = [
+                        {'name': connection.attrs.get('alt'),
+                         'photo_url': __site_url__ + (connection.attrs.get('src') or ''),}
+                        for connection in all_highlighted_connections]
 
             yield({'url': url,
                    'name': name,
-                   'image_url': image_url})
+                   'image_url': image_url,
+                   'status': status,
+                   'link': link,
+                   'location': location,
+                   'snippets': snippets,
+                   'role': role,
+                   'mutual_connections': {
+                       'count': mutual_connections_count,
+                       'highlighted_connections': highlighted_connections,
+                       'mutual_connections_url': mutual_connections_url }})
 
 
         driver.find_element_by_class_name('artdeco-pagination__button--next').click()
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+        scroll_slowly_down(driver)
         element = WebDriverWait(driver, 10).until(lambda x: x.find_element_by_class_name("artdeco-pagination"))
 
 

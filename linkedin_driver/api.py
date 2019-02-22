@@ -3,8 +3,6 @@ from metatype import Dict
 from linkedin_driver import _login, __site_url__
 
 from linkedin_driver.utils import (
-    filter_contacts,
-
     open_contact,
     scroll_to_bottom,
     open_interest,
@@ -26,8 +24,11 @@ from linkedin_driver.utils import (
     recommendations
 )
 
-from selenium.webdriver.support.wait import WebDriverWait
+from linkedin_driver.utils import (
+    filter_contacts
+)
 
+from selenium.webdriver.support.wait import WebDriverWait
 
 
 class Contact(Dict):
