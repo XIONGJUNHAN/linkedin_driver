@@ -60,6 +60,8 @@ def filter_contacts(driver, keyword):
             img = contact.find('img', {'class': 'presence-entity__image'})
             if img is not None:
                 image_url = img.attrs.get('src')
+            else:
+                image_url = None
 
             link = contact.find('a', {'data-control-name': 'search_srp_result'})
             status = None
