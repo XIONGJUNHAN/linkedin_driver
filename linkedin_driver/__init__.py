@@ -10,6 +10,7 @@ def _login(
         password=None,
         profile=None,
         recreate_profile=False,
+        headless=False,
         proxies='default'):
     '''
     Accepts: username/password.
@@ -22,9 +23,9 @@ def _login(
     2. LinkedIn asks to enter phone number
     '''
     if proxies is not None:
-        driver = get_driver(recreate_profile=recreate_profile, proxies=proxies)
+        driver = get_driver(recreate_profile=recreate_profile, proxies=proxies, headless=headless)
     else:
-        driver = get_driver(recreate_profile=recreate_profile)
+        driver = get_driver(recreate_profile=recreate_profile, headless=headless)
 
     driver.get(__site_url__)
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
