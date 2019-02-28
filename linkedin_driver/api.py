@@ -39,7 +39,10 @@ class Contact(Dict):
         Returns:
             Iterator.
         '''
-        driver = _login()
+        if not cls._DRIVES:
+            cls._DRIVES.append(_login())
+        else:
+            driver = cls._DRIVES[0]
 
         for item in filter_contacts(driver, keyword):
             yield(cls(item))
@@ -99,6 +102,95 @@ class Contact(Dict):
     def send_message(self):
         raise NotImplemented
 
+
+class Post(Dict):
+
+    @classmethod
+    def _get(self, url):
+        if not cls._DRIVES:
+            cls._DRIVES.append(_login())
+        else:
+            driver = cls._DRIVES[0]
+
+        driver.get(url)
+
+    @classmethod
+    def _filter(cls, limit=None, close_after_execution=True):
+
+        if not cls._DRIVES:
+            cls._DRIVES.append(_login())
+        else:
+            driver = cls._DRIVES[0]
+
+        while True:
+
+            soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+            posts_placeholder = soup.find('div', {'class': 'core-rail'})
+            posts = posts_placeholder.find_all('div', {'class': 'relative ember-view'})
+
+            count = 0
+
+            for i, post in enumerate(posts):
+
+                url = 'https://www.linkedin.com/feed/update/'+post.attrs['data-id']
+
+                shared_by = post.find('div', {'class': 'presence-entity'})
+                if shared_by:
+                    shared_by = shared_by.find('div', {'class': 'ivm-view-attr__img--centered'})
+                    if shared_by:
+                        shared_by = shared_by.text
+                        if shared_by:
+                            shared_by = shared_by.strip()
+
+                text = post.find('div', {'class': 'feed-shared-text'})
+                if isinstance(text, str):
+                    text = text.strip()
+                else:
+                    text = None
+
+                mentioned_by = post.find('a', {'class': 'feed-shared-text-view__mention'})
+                if mentioned_by:
+                    profile_path = mentioned_by.attrs.get('href')
+                    if profile_path:
+                        mentioned_by = 'https://www.linkedin.com'+profile_path
+
+                # comments =
+                # media =
+
+                item = {
+                    'url': url,
+                    'date': None,
+                    'body': text,
+                    'comments': [],
+                    'mentioned_by': mentioned_by,
+                    'shared_by': shared_by,
+                    'logged': datetime.datetime.utcnow().isoformat(),
+                    '-': url,
+                    '+': metawiki.name_to_url(driver.metaname),
+                    '*': metawiki.name_to_url('::mindey/topic#linkedin')
+                }
+
+                count += 1
+                yield item
+
+                if limit:
+                    if count >= limit:
+                        break
+
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+
+    def _update(self):
+        raise NotImplemented
+
+    def add_comment(self, text):
+        field = self.driver.find_element_by_class_name('mentions-texteditor__contenteditable')
+        field.send_keys(text)
+        button = self.driver.find_element_by_class_name('comments-comment-box__submit-button')
+        button.click()
+
+
+
 class Message(Dict):
 
     @classmethod
@@ -110,23 +202,6 @@ class Message(Dict):
         raise NotImplemented
 
     def _update(self):
-        raise NotImplemented
-
-
-class Post(Dict):
-
-    @classmethod
-    def _get(self):
-        raise NotImplemented
-
-    @classmethod
-    def _filter(cls):
-        raise NotImplemented
-
-    def _update(self):
-        raise NotImplemented
-
-    def add_comment(self):
         raise NotImplemented
 
 
