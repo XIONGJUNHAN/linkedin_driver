@@ -32,6 +32,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 # misc
 import bs4
+import base64
 import datetime
 import metawiki
 import requests
@@ -128,6 +129,14 @@ class Post(Dict):
 
         while True:
 
+            # click all "show more" links
+            eles = driver.find_elements_by_css_selector('.see-more')
+            for ele in eles:
+                try:
+                    driver.execute_script('arguments[0].click();',ele)
+                except:
+                    pass
+
             soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
             posts_placeholder = soup.find('div', {'class': 'core-rail'})
             posts = posts_placeholder.find_all('div', {'class': 'relative ember-view'})
@@ -138,19 +147,17 @@ class Post(Dict):
 
                 url = 'https://www.linkedin.com/feed/update/'+post.attrs['data-id']
 
-                shared_by = post.find('div', {'class': 'presence-entity'})
-                if shared_by:
-                    shared_ = shared_by.find('div', {'class': 'ivm-view-attr__img--centered'})
+                author_status = post.find('div', {'class': 'presence-entity'})
+                if author_status:
+                    shared_ = author_status.find('div', {'class': 'ivm-view-attr__img--centered'})
                     if shared_:
                         shared_ = shared_.text
                         if shared_:
-                            shared_by = shared_.strip()
+                            author_status = shared_.strip()
                         else:
-                            shared_by = shared_by.text.strip()
+                            author_status = author_status.text.strip()
                     else:
-                        shared_by = shared_by.text.strip()
-
-
+                        author_status = author_status.text.strip()
 
                 text = post.find('div', {'class': 'feed-shared-text'})
                 if text is not None:
@@ -161,6 +168,7 @@ class Post(Dict):
                 else:
                     text = None
 
+                # ???
                 mentioned_by = post.find('a', {'class': 'feed-shared-text-view__mention'})
                 if mentioned_by:
                     profile_path = mentioned_by.attrs.get('href')
@@ -169,21 +177,78 @@ class Post(Dict):
 
                 author_image = post.find('img', {'class': 'presence-entity__image'})
                 if author_image is not None:
-                    author_image = author_image.attrs['src']
+                    author_image = author_image.attrs.get('src')
                 else:
                     author_image = None
 
                 post_image = post.find('img', {'class': 'feed-shared-article__image'})
                 if post_image is not None:
-                    post_image = post_image.attrs['src']
+                    post_image = post_image.attrs.get('src')
                 else:
                     post_image = None
 
-                # author_image_data = requests.get(author_image)
-                # post_image_data = requests.get(post_image)
+                if author_image is not None:
+                    author_image_data = requests.get(author_image)
+                    if author_image_data.ok:
+                        author_image_data = base64.b64encode(author_image_data.content)
+                    else:
+                        author_image_data = None
+                else:
+                    author_image_data = None
+
+                if post_image is not None:
+                    post_image_data = requests.get(post_image)
+                    if post_image_data.ok:
+                        post_image_data = base64.b64encode(post_image_data.content)
+                    else:
+                        post_image_data = None
+                else:
+                    post_image_data = None
 
 
-                # comments =
+                media_title = post.find('div', {'class': 'feed-shared-article__description-container'})
+                media_subtitle = None
+
+                if media_title is not None:
+                    title = media_title.find('span')
+                    subtitle = media_title.find('h3', {'class': 'feed-shared-article__subtitle'})
+
+                    if title is not None:
+                        media_title = title.text.strip()
+                    else:
+                        media_title = None
+
+                    if subtitle is not None:
+                        media_subtitle = subtitle.text.strip()
+                    else:
+                        media_subtitle = None
+
+                media_link = post.find('a', {'class': 'app-aware-link'})
+                if media_link is not None:
+                    media_link = media_link.attrs['href']
+
+
+                counts_ul = post.find('ul', {'class': 'feed-shared-social-counts'})
+                media_counts = {}
+
+                if counts_ul is not None:
+                    counts_li = counts_ul.find_all('li')
+                else:
+                    counts_li = []
+
+                for _count in counts_li:
+                    cnt = _count.find('span', {'class': 'visually-hidden'})
+                    if cnt is not None:
+
+                        if 'Likes' in cnt.text:
+                            media_counts.update({'likes_count': int(cnt.text.split('Likes')[0].strip().replace(',',''))})
+
+                        if 'Comments' in cnt.text:
+                            media_counts.update({'comments_count': int(cnt.text.split('Comments')[0].strip().replace(',',''))})
+
+                        if 'Views' in cnt.text:
+                            media_counts.update({'views_count': int(cnt.text.split('Views')[0].strip().replace(',',''))})
+
 
                 item = {
                     'url': url,
@@ -191,16 +256,22 @@ class Post(Dict):
                     'body': text,
                     'media': {
                         'author_image': author_image,
-                        'cover_image': post_image
+                        'post_image': post_image,
+                        'author_image_data': author_image_data,
+                        'post_image_data': post_image_data,
+                        'media_link': media_link,
+                        'media_title': media_title,
+                        'media_subtitle': media_subtitle
                     },
-                    'comments': [],
+                    'stats': media_counts,
                     'mentioned_by': mentioned_by,
-                    'shared_by': shared_by,
+                    'author_status': author_status,
                     'logged': datetime.datetime.utcnow().isoformat(),
                     '-': url,
                     '+': metawiki.name_to_url(driver.metaname),
                     '*': metawiki.name_to_url('::mindey/topic#linkedin')
                 }
+
 
                 count += 1
                 yield item
