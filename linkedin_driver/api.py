@@ -30,6 +30,11 @@ from linkedin_driver.utils import (
 
 from selenium.webdriver.support.wait import WebDriverWait
 
+# misc
+import bs4
+import datetime
+import metawiki
+import requests
 
 class Contact(Dict):
 
@@ -78,7 +83,6 @@ class Contact(Dict):
 
         # <<EXPAND-TABS>>
         open_more(driver)
-        import bs4
 
         # PERSONAL-INFO
         soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
@@ -119,8 +123,8 @@ class Post(Dict):
 
         if not cls._DRIVES:
             cls._DRIVES.append(_login())
-        else:
-            driver = cls._DRIVES[0]
+
+        driver = cls._DRIVES[0]
 
         while True:
 
@@ -136,15 +140,24 @@ class Post(Dict):
 
                 shared_by = post.find('div', {'class': 'presence-entity'})
                 if shared_by:
-                    shared_by = shared_by.find('div', {'class': 'ivm-view-attr__img--centered'})
-                    if shared_by:
-                        shared_by = shared_by.text
-                        if shared_by:
-                            shared_by = shared_by.strip()
+                    shared_ = shared_by.find('div', {'class': 'ivm-view-attr__img--centered'})
+                    if shared_:
+                        shared_ = shared_.text
+                        if shared_:
+                            shared_by = shared_.strip()
+                        else:
+                            shared_by = shared_by.text.strip()
+                    else:
+                        shared_by = shared_by.text.strip()
+
+
 
                 text = post.find('div', {'class': 'feed-shared-text'})
-                if isinstance(text, str):
-                    text = text.strip()
+                if text is not None:
+                    if isinstance(text, str):
+                        text = text.strip()
+                    else:
+                        text = text.text.strip()
                 else:
                     text = None
 
@@ -154,13 +167,32 @@ class Post(Dict):
                     if profile_path:
                         mentioned_by = 'https://www.linkedin.com'+profile_path
 
+                author_image = post.find('img', {'class': 'presence-entity__image'})
+                if author_image is not None:
+                    author_image = author_image.attrs['src']
+                else:
+                    author_image = None
+
+                post_image = post.find('img', {'class': 'feed-shared-article__image'})
+                if post_image is not None:
+                    post_image = post_image.attrs['src']
+                else:
+                    post_image = None
+
+                # author_image_data = requests.get(author_image)
+                # post_image_data = requests.get(post_image)
+
+
                 # comments =
-                # media =
 
                 item = {
                     'url': url,
                     'date': None,
                     'body': text,
+                    'media': {
+                        'author_image': author_image,
+                        'cover_image': post_image
+                    },
                     'comments': [],
                     'mentioned_by': mentioned_by,
                     'shared_by': shared_by,
