@@ -72,4 +72,5 @@ def _login(
         raise Exception("Something wrong, the site does not have profile (user-dropdown).")
 
 def _harvest():
-    raise NotImplemented
+    from linkedin_driver.api import Post
+    return Post._filter
