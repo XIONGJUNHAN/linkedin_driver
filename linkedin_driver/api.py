@@ -190,7 +190,7 @@ class Post(Dict):
                 if author_image is not None:
                     author_image_data = requests.get(author_image)
                     if author_image_data.ok:
-                        author_image_data = base64.b64encode(author_image_data.content)
+                        author_image_data = str(base64.b64encode(author_image_data.content), 'ascii')
                     else:
                         author_image_data = None
                 else:
@@ -199,7 +199,7 @@ class Post(Dict):
                 if post_image is not None:
                     post_image_data = requests.get(post_image)
                     if post_image_data.ok:
-                        post_image_data = base64.b64encode(post_image_data.content)
+                        post_image_data = str(base64.b64encode(post_image_data.content), 'ascii')
                     else:
                         post_image_data = None
                 else:
