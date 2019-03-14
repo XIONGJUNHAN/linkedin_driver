@@ -73,4 +73,4 @@ def _login(
 
 def _harvest():
     from linkedin_driver.api import Post
-    return Post._filter
+    return Post._filter()
