@@ -40,13 +40,16 @@ import requests
 class Contact(Dict):
 
     @classmethod
-    def _filter(cls, keyword=None):
+    def _filter(cls, keyword=None, drive=None):
         '''
         Returns:
             Iterator.
         '''
         if not cls._DRIVES:
-            cls._DRIVES.append(_login())
+            if drive is not None:
+                cls._DRIVES.append(drive)
+            else:
+                cls._DRIVES.append(_login())
         else:
             driver = cls._DRIVES[0]
 
@@ -57,9 +60,15 @@ class Contact(Dict):
         raise NotImplemented
 
     @classmethod
-    def _get(cls, url):
+    def _get(cls, url, drive=None):
 
-        driver = _login()
+        if not cls._DRIVES:
+            if drive is not None:
+                cls._DRIVES.append(drive)
+            else:
+                cls._DRIVES.append(_login())
+        else:
+            driver = cls._DRIVES[0]
 
         record = {}
 
@@ -111,19 +120,25 @@ class Contact(Dict):
 class Post(Dict):
 
     @classmethod
-    def _get(self, url):
+    def _get(self, url, drive=None):
         if not cls._DRIVES:
-            cls._DRIVES.append(_login())
+            if drive is not None:
+                cls._DRIVES.append(drive)
+            else:
+                cls._DRIVES.append(_login())
         else:
             driver = cls._DRIVES[0]
 
         driver.get(url)
 
     @classmethod
-    def _filter(cls, limit=None, close_after_execution=True):
+    def _filter(cls, drive=None, limit=None, close_after_execution=True):
 
         if not cls._DRIVES:
-            cls._DRIVES.append(_login())
+            if drive is not None:
+                cls._DRIVES.append(drive)
+            else:
+                cls._DRIVES.append(_login())
 
         driver = cls._DRIVES[0]
 
