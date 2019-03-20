@@ -283,7 +283,7 @@ class Post(Dict):
                     'author_status': author_status,
                     'logged': datetime.datetime.utcnow().isoformat(),
                     '-': url,
-                    '+': metawiki.name_to_url(driver.metaname),
+                    '+': metawiki.name_to_url(driver.metaname) if driver.metaname else '',
                     '*': metawiki.name_to_url('::mindey/topic#linkedin')
                 }
 

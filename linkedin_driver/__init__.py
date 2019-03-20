@@ -8,7 +8,7 @@ from metadrive._selenium import get_driver
 def _login(
         username=None,
         password=None,
-        profile=None,
+        profile='default',
         recreate_profile=False,
         headless=False,
         proxies='default'):
@@ -23,9 +23,9 @@ def _login(
     2. LinkedIn asks to enter phone number
     '''
     if proxies is not None:
-        driver = get_driver(recreate_profile=recreate_profile, proxies=proxies, headless=headless)
+        driver = get_driver(profile=profile, recreate_profile=recreate_profile, proxies=proxies, headless=headless)
     else:
-        driver = get_driver(recreate_profile=recreate_profile, headless=headless)
+        driver = get_driver(profile=profile, recreate_profile=recreate_profile, headless=headless)
 
     driver.get(__site_url__)
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
